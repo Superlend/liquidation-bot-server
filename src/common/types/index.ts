@@ -27,6 +27,7 @@ export type LiquidationOpportunity = {
     symbol: string;
     decimals: number;
     address: string;
+    amount: string;
   };
   debtToken: {
     name: string;

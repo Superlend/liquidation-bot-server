@@ -29,9 +29,7 @@ export const formatUserReserveData = (
           balanceUsd: Number(userReserve.underlyingBalanceUSD),
 
           price: Number(userReserve.reserve.priceInUSD),
-          liquidationBonus: Number(
-            userReserve.reserve.formattedReserveLiquidationBonus,
-          ),
+          liquidationBonus: Number(userReserve.reserve.reserveLiquidationBonus),
         });
       }
 
@@ -51,6 +49,8 @@ export const formatUserReserveData = (
       }
     },
   );
+
+  debtAssets.sort((a, b) => b.balanceUsd - a.balanceUsd);
 
   return { collatAssets, debtAssets };
 };

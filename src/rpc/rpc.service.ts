@@ -22,8 +22,10 @@ export class RpcService {
 
   constructor(@Inject(WINSTON_MODULE_PROVIDER) private logger: Logger) {
     this.provider = [
+      new providers.JsonRpcProvider(
+        'https://plend-etherlink-mainnet-djs2w.zeeve.net/TuychDxGCScIED1nCk0m/rpc',
+      ),
       new providers.JsonRpcProvider('https://node.mainnet.etherlink.com'),
-      new providers.JsonRpcProvider(''),
     ]; // TODO: setup for backup providers
     this.chainId = 42793;
   }
