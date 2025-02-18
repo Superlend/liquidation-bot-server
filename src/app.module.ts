@@ -8,6 +8,7 @@ import * as path from 'path';
 import { DBModule } from './db/db.module';
 import { ConfigModule } from '@nestjs/config';
 import { RepoModule } from './repo/repo.module';
+import { RpcModule } from './rpc/rpc.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { RepoModule } from './repo/repo.module';
     DBModule.forRoot(),
     RepoModule,
     LiquidationModule,
+    RpcModule,
   ],
   controllers: [AppController],
   providers: [AppService],

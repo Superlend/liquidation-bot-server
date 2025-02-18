@@ -1,17 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { Promisify } from './common/promisifier.helper';
-import { IndexerDataType } from './common/interfaces';
-import { RepoService } from './repo/repo.service';
+import { LiquidationService } from './liquidation/liquidation.service';
 
 @Injectable()
 export class AppService {
-  constructor(private dataService: RepoService) {}
+  constructor(private liqService: LiquidationService) {}
 
   async getHello(): Promise<string> {
-    const res = await Promisify<IndexerDataType[]>(
-      this.dataService.getLiquidateableUsers(),
-    );
-    console.log(res);
+    await this.liqService.processLiquidations();
     return 'Hello World!';
   }
 }
