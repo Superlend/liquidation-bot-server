@@ -12,22 +12,62 @@ import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { ResultWithError, RpcCall } from '../common/interfaces';
 import { getAddress } from 'ethers/lib/utils';
-import { providers } from 'ethers';
-import { UserReserveDataHumanizedWithEmode } from '../common/types';
+import { Contract, providers, Wallet } from 'ethers';
+import {
+  LiquidationParams,
+  UserReserveDataHumanizedWithEmode,
+} from '../common/types';
+import { Chain, createPublicClient, http, PublicClient, Transport } from 'viem';
+import {
+  EtherlinkTokens,
+  getViemEtherlinkConfig,
+  IguanaSubgraphV2,
+  IguanaSubgraphV3,
+  LIQUIDATION_HELPER,
+} from '../common/constants';
+import { SmartRouter } from '@iguanadex/smart-router';
+import { CurrencyAmount, TradeType } from '@iguanadex/sdk';
+import { GraphQLClient } from 'graphql-request';
+import {
+  abi,
+  FlashLiquidations,
+} from '../common/types/contracts/liquidationHelper/flashLiquidation';
 
 @Injectable()
 export class RpcService {
   private provider: providers.JsonRpcProvider[];
+  private viemClient: PublicClient<Transport, Chain>;
+  private iguanaSubgraphClientV2: any;
+  private iguanaSubgraphClientV3: any;
+
+  private liquidatorPvtKey: string;
+
   private chainId: number;
 
   constructor(@Inject(WINSTON_MODULE_PROVIDER) private logger: Logger) {
+    const nodeUrls = [
+      'https://node.mainnet.etherlink.com',
+      'https://plend-etherlink-mainnet-djs2w.zeeve.net/TuychDxGCScIED1nCk0m/rpc',
+    ];
+
     this.provider = [
-      new providers.JsonRpcProvider(
-        'https://plend-etherlink-mainnet-djs2w.zeeve.net/TuychDxGCScIED1nCk0m/rpc',
-      ),
-      new providers.JsonRpcProvider('https://node.mainnet.etherlink.com'),
+      new providers.JsonRpcProvider(nodeUrls[0]),
+      new providers.JsonRpcProvider(nodeUrls[1]),
     ]; // TODO: setup for backup providers
     this.chainId = 42793;
+
+    this.viemClient = createPublicClient({
+      chain: getViemEtherlinkConfig(nodeUrls),
+      transport: http(nodeUrls[0]),
+      batch: {
+        multicall: {
+          batchSize: 1024 * 200,
+        },
+      },
+    });
+
+    this.iguanaSubgraphClientV3 = new GraphQLClient(IguanaSubgraphV3);
+    this.iguanaSubgraphClientV2 = new GraphQLClient(IguanaSubgraphV2);
   }
 
   async getAaveReservesData(
@@ -164,5 +204,123 @@ export class RpcService {
       }
     }
     throw new Error('All RPC calls failed!');
+  }
+
+  async contractCallWithRetry<T>(
+    rpcCall: RpcCall<T>,
+    chainId: number,
+    ...args: any[]
+  ): Promise<T> {
+    for (const [idx, provider] of this.provider.entries()) {
+      this.logger.info(
+        `Trying to make transaction [chainId : ${chainId}, providerPriority: ${idx}]`,
+      );
+      try {
+        return await rpcCall(provider, ...args);
+      } catch (error) {
+        this.logger.error(
+          `Error in make transaction [provider : ${provider?.connection?.url}, priority : ${idx}] : ${error.stack}`,
+        );
+      }
+    }
+    throw new Error('All RPC calls failed!');
+  }
+  async getTradePath(
+    fromTokenAddress: string,
+    toTokenAddress: string,
+    amountToSell: string,
+  ): Promise<ResultWithError> {
+    try {
+      this.logger.info(
+        `Fetching trading path [fromToken: ${fromTokenAddress}, toToken: ${toTokenAddress}, amountToSell: ${amountToSell}]`,
+      );
+      const swapFrom = EtherlinkTokens[fromTokenAddress];
+      const swapTo = EtherlinkTokens[toTokenAddress];
+
+      const quoteProvider = SmartRouter.createQuoteProvider({
+        onChainProvider: () => this.viemClient,
+      });
+      const amount = CurrencyAmount.fromRawAmount(swapFrom, amountToSell);
+
+      const [v2Pools, v3Pools] = await Promise.all([
+        SmartRouter.getV2CandidatePools({
+          onChainProvider: () => this.viemClient,
+          v2SubgraphProvider: () => this.iguanaSubgraphClientV2,
+          v3SubgraphProvider: () => this.iguanaSubgraphClientV3,
+          currencyA: amount.currency,
+          currencyB: swapTo,
+        }),
+        SmartRouter.getV3CandidatePools({
+          onChainProvider: () => this.viemClient,
+          subgraphProvider: () => this.iguanaSubgraphClientV3,
+          currencyA: amount.currency,
+          currencyB: swapTo,
+          subgraphFallback: false,
+        }),
+      ]);
+      const pools = [...v2Pools, ...v3Pools];
+      const trade = await SmartRouter.getBestTrade(
+        amount,
+        swapTo,
+        TradeType.EXACT_INPUT,
+        {
+          gasPriceWei: () => this.viemClient.getGasPrice(),
+          maxHops: 2,
+          maxSplits: 2,
+          poolProvider: SmartRouter.createStaticPoolProvider(pools),
+          quoteProvider,
+          quoterOptimization: true,
+        },
+      );
+
+      return { data: trade, error: null };
+    } catch (error) {
+      this.logger.error(
+        `Error in fetching trading path [fromToken: ${fromTokenAddress}, toToken: ${toTokenAddress}, amountToSell: ${amountToSell}]: ${error.stack}`,
+      );
+      return { data: null, error };
+    }
+  }
+
+  async exectuteLiquidation(
+    liquidationParams: LiquidationParams,
+  ): Promise<ResultWithError> {
+    try {
+      this.logger.info(
+        `Executing liquidation [params: ${JSON.stringify(liquidationParams)}]`,
+      );
+      const contract = <FlashLiquidations>new Contract(LIQUIDATION_HELPER, abi);
+      const tx = await this.contractCallWithRetry(
+        async (provider: providers.JsonRpcProvider) => {
+          const wallet = new Wallet(this.liquidatorPvtKey, provider);
+          return await contract
+            .connect(wallet)
+            .estimateGas.executeLiquidation(
+              liquidationParams.debtToken,
+              liquidationParams.amount,
+              liquidationParams.colToken,
+              liquidationParams.user,
+              liquidationParams.poolFee1,
+              liquidationParams.poolFee2,
+              liquidationParams.pathToken,
+              liquidationParams.usePath,
+            );
+        },
+        this.chainId,
+      );
+      console.log(tx.toString());
+      const receipt = { transactionHash: '-x123' };
+      // await tx.wait();
+
+      this.logger.info(
+        `Succesfully executed liquidation [params: ${JSON.stringify(liquidationParams)}, txHash: ${receipt.transactionHash}]`,
+      );
+      return { data: receipt, error: null };
+    } catch (error) {
+      this.logger.error(
+        `Error in executing liquidation [params: ${JSON.stringify(liquidationParams)}]: ${error.stack}`,
+      );
+      return { data: null, error };
+    }
   }
 }

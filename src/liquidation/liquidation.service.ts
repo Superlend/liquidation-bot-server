@@ -3,7 +3,6 @@ import { RpcService } from '../rpc/rpc.service';
 import { Logger } from 'winston';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Promisify } from '../common/promisifier.helper';
-import { IndexerDataType } from '../common/interfaces';
 import { RepoService } from '../repo/repo.service';
 import { ReservesDataHumanized } from '@aave/contract-helpers';
 import {
@@ -13,12 +12,17 @@ import {
 import {
   LiquidationAsset,
   LiquidationOpportunity,
+  LiquidationParams,
   UserReserveDataHumanizedWithEmode,
 } from '../common/types';
 import { FormatUserSummaryResponse } from '@aave/math-utils';
 import { formatUserReserveData } from '../common/formatters';
 import { BigNumber } from 'ethers';
 import { parseUnits } from 'ethers/lib/utils';
+import { SmartRouterTrade, V3Pool } from '@iguanadex/smart-router';
+import { Token, TradeType } from '@iguanadex/sdk';
+import { zeroAddress } from 'viem';
+import { IndexerDataType } from '../common/interfaces';
 
 @Injectable()
 export class LiquidationService {
@@ -176,14 +180,50 @@ export class LiquidationService {
 
       if (Number(userData.healthFactor) >= 1) continue;
 
-      const liqOpp = this.calculateLiquidationProfit(
+      const liqOpps = this.calculateLiquidationProfit(
         formattedUserReserveData.collatAssets,
         formattedUserReserveData.debtAssets,
-        0,
+        0, // keeping gas cost as 0 for now
         Number(userData.healthFactor),
       ); // TODO: add gas cost, slippage and dex fees
-      if (liqOpp[0] && liqOpp[0].profit > 0)
-        console.log(userAddresses[idx], liqOpp[0].profit);
+      if (!liqOpps[0] || liqOpps[0].profit <= 0) return;
+
+      // calculate the path
+      const liqOpp = liqOpps[0];
+      const tradePath = await Promisify<SmartRouterTrade<TradeType>>(
+        this.rpcService.getTradePath(
+          liqOpp.collateralToken.address.toLowerCase(),
+          liqOpp.debtToken.address.toLowerCase(),
+          liqOpp.collateralToken.amount,
+        ),
+      );
+      if (tradePath.routes.length === 0)
+        throw new Error(
+          `No dex route exist for ${liqOpp.collateralToken.address} to ${liqOpp.debtToken.address}!`,
+        );
+
+      const liquidationParams: LiquidationParams = {
+        debtToken: liqOpp.debtToken.address,
+        amount: liqOpp.debtToken.amount,
+        colToken: liqOpp.collateralToken.address,
+        user: userAddresses[idx],
+        poolFee1: (tradePath.routes[0].pools[0] as V3Pool).fee,
+        poolFee2: 0,
+        pathToken: zeroAddress as `0x${string}`,
+        usePath: false,
+      };
+
+      if (tradePath.routes[0].pools.length > 1) {
+        liquidationParams.poolFee2 = (
+          tradePath.routes[0].pools[1] as V3Pool
+        ).fee;
+        liquidationParams.pathToken = (
+          tradePath.routes[0].path[1] as Token
+        ).address;
+        liquidationParams.usePath = true;
+      }
+
+      await this.rpcService.exectuteLiquidation(liquidationParams);
     }
   }
 

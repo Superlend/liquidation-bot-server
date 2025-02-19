@@ -38,3 +38,14 @@ export type LiquidationOpportunity = {
   };
   profit: number;
 };
+
+export type LiquidationParams = {
+  debtToken: string;
+  amount: string;
+  colToken: string;
+  user: string;
+  poolFee1: number;
+  poolFee2: number;
+  pathToken: `0x${string}`;
+  usePath: boolean;
+};
