@@ -24,6 +24,11 @@ import { Token, TradeType } from '@iguanadex/sdk';
 import { zeroAddress } from 'viem';
 import { IndexerDataType } from '../common/interfaces';
 
+/**
+ * Service responsible for processing and executing liquidations on Aave positions
+ * Identifies unhealthy positions, calculates profitable liquidation opportunities,
+ * and executes liquidations through smart contracts
+ */
 @Injectable()
 export class LiquidationService {
   constructor(
@@ -32,6 +37,13 @@ export class LiquidationService {
     private repoService: RepoService,
   ) {}
 
+  /**
+   * Main entry point for processing liquidations
+   * 1. Fetches unhealthy positions from the repository
+   * 2. Gets Aave reserves data
+   * 3. Processes users in batches to avoid rate limiting
+   * 4. For each batch, analyzes and executes profitable liquidations
+   */
   async processLiquidations() {
     try {
       const unhealthyPositions = await Promisify<IndexerDataType[]>(
@@ -82,6 +94,20 @@ export class LiquidationService {
     }
   }
 
+  /**
+   * Calculates potential profit from liquidating positions
+   * @param collateralAssets Array of assets used as collateral
+   * @param debtAssets Array of borrowed assets
+   * @param gasCost Estimated gas cost for liquidation
+   * @param hf Health factor of the position
+   * @returns Array of liquidation opportunities sorted by profit
+   *
+   * For each collateral asset:
+   * 1. Calculates maximum seizable collateral based on liquidation bonus
+   * 2. Determines optimal debt amount to repay
+   * 3. Calculates potential profit accounting for gas costs
+   * 4. Converts amounts to proper token decimals
+   */
   private calculateLiquidationProfit(
     collateralAssets: LiquidationAsset[],
     debtAssets: LiquidationAsset[],
@@ -144,6 +170,12 @@ export class LiquidationService {
     return liqOpportunities.sort((a, b) => b.profit - a.profit);
   }
 
+  /**
+   * Fetches and formats user data from Aave
+   * @param reservesData Current state of all Aave reserves
+   * @param user_address Address of the user to fetch data for
+   * @returns Formatted user summary including positions and health factor
+   */
   private async getFormattedUserData(
     reservesData: ReservesDataHumanized,
     user_address: string,
@@ -167,6 +199,18 @@ export class LiquidationService {
     return userData;
   }
 
+  /**
+   * Processes a batch of users for liquidation opportunities
+   * @param usersData Array of formatted user data from Aave
+   * @param userAddresses Corresponding array of user addresses
+   *
+   * For each user:
+   * 1. Formats their reserve data
+   * 2. Checks if position is liquidatable
+   * 3. Calculates profitable liquidation opportunities
+   * 4. Finds optimal DEX route for token swaps
+   * 5. Executes liquidation if profitable path exists
+   */
   private async processLiquidationBatch(
     usersData: FormatUserSummaryResponse[],
     userAddresses: string[],
@@ -231,6 +275,17 @@ export class LiquidationService {
     }
   }
 
+  /**
+   * Safely parses string amounts to BigNumber with proper decimal precision
+   * @param amount String amount to parse
+   * @param decimals Number of decimals for the token
+   * @returns BigNumber representation of the amount
+   *
+   * Handles edge cases:
+   * - Adds missing decimal places
+   * - Truncates excess decimals
+   * - Returns 0 if parsing fails
+   */
   private parseUnitsWithRetry(amount: string, decimals: number): BigNumber {
     try {
       const [integerPart, decimalPart = ''] = amount.split('.');

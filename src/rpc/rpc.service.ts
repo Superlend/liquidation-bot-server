@@ -34,6 +34,11 @@ import {
 } from '../common/types/contracts/liquidationHelper/flashLiquidation';
 import { ConfigService } from '@nestjs/config';
 
+/**
+ * Service responsible for handling all RPC (Remote Procedure Call) interactions
+ * Manages connections to blockchain nodes, Aave protocol, and DEX (Decentralized Exchange) services
+ * Provides methods for fetching data and executing transactions with failover support
+ */
 @Injectable()
 export class RpcService {
   private provider: providers.JsonRpcProvider[];
@@ -75,6 +80,17 @@ export class RpcService {
     this.iguanaSubgraphClientV2 = new GraphQLClient(IguanaSubgraphV2);
   }
 
+  /**
+   * Fetches Aave protocol reserve data
+   * @param uiPoolDataProviderAddress Address of Aave's UI pool data provider contract
+   * @param lendingPoolAddressProvider Address of Aave's lending pool address provider
+   * @returns Promise with reserve data or error
+   *
+   * Gets current state of all assets in Aave protocol including:
+   * - Asset prices
+   * - Interest rates
+   * - Liquidation parameters
+   */
   async getAaveReservesData(
     uiPoolDataProviderAddress: string,
     lendingPoolAddressProvider: string,
@@ -108,6 +124,18 @@ export class RpcService {
     }
   }
 
+  /**
+   * Fetches specific user's reserve data from Aave
+   * @param userAddress Address of the user to query
+   * @param uiPoolDataProviderAddress Address of Aave's UI data provider
+   * @param lendingPoolAddressProvider Address of lending pool provider
+   * @returns Promise with user's positions data or error
+   *
+   * Gets user's current positions including:
+   * - Supplied assets
+   * - Borrowed assets
+   * - Health factor
+   */
   async getAaveUserReserveData(
     userAddress: string,
     uiPoolDataProviderAddress: string,
@@ -145,6 +173,18 @@ export class RpcService {
     }
   }
 
+  /**
+   * Formats and calculates user-specific data using Aave's math utils
+   * @param userAddress Target user's address
+   * @param reserveData Current state of all reserves
+   * @param userData User's raw reserve data
+   * @returns Formatted user summary with calculated metrics
+   *
+   * Processes raw data to calculate:
+   * - USD values
+   * - Health factors
+   * - Liquidation thresholds
+   */
   async getAaveUserData(
     userAddress: string,
     reserveData: ReservesDataHumanized,
@@ -191,6 +231,15 @@ export class RpcService {
     }
   }
 
+  /**
+   * Makes RPC calls with automatic failover to backup providers
+   * @param rpcCall Function making the actual RPC call
+   * @param chainId Target blockchain network ID
+   * @param args Additional arguments for the RPC call
+   * @returns Promise of the RPC call result
+   *
+   * Attempts calls on primary node, falls back to backup nodes if primary fails
+   */
   async ethCallWithRetry<T>(
     rpcCall: RpcCall<T>,
     chainId: number,
@@ -211,6 +260,13 @@ export class RpcService {
     throw new Error('All RPC calls failed!');
   }
 
+  /**
+   * Similar to ethCallWithRetry but specifically for contract transactions
+   * @param rpcCall Function making the contract call
+   * @param chainId Target blockchain network ID
+   * @param args Additional arguments for the contract call
+   * @returns Promise of the transaction result
+   */
   async contractCallWithRetry<T>(
     rpcCall: RpcCall<T>,
     chainId: number,
@@ -230,6 +286,19 @@ export class RpcService {
     }
     throw new Error('All RPC calls failed!');
   }
+
+  /**
+   * Calculates optimal trading path for token swap using IguanaDEX
+   * @param fromTokenAddress Source token address
+   * @param toTokenAddress Target token address
+   * @param amountToSell Amount of source token to swap
+   * @returns Best trading route with minimal price impact
+   *
+   * Considers both V2 and V3 liquidity pools to find:
+   * - Best price execution
+   * - Optimal routing through multiple pools
+   * - Gas costs for different paths
+   */
   async getTradePath(
     fromTokenAddress: string,
     toTokenAddress: string,
@@ -287,6 +356,21 @@ export class RpcService {
     }
   }
 
+  /**
+   * Executes liquidation transaction on-chain
+   * @param liquidationParams Parameters for the liquidation including:
+   * - Debt token and amount
+   * - Collateral token
+   * - User address
+   * - DEX pool fees and routing
+   * @returns Transaction receipt or error
+   *
+   * Performs:
+   * 1. Flash loan for liquidation
+   * 2. Liquidation of position
+   * 3. Token swap through DEX
+   * 4. Repayment of flash loan
+   */
   async exectuteLiquidation(
     liquidationParams: LiquidationParams,
   ): Promise<ResultWithError> {

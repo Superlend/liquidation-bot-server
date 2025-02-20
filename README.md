@@ -1,73 +1,117 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# Superlend Liquidation Bot
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+An automated liquidation bot for the Aave protocol that monitors positions, identifies liquidation opportunities, and executes profitable liquidations using flash loans and DEX swaps.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Overview
 
-## Description
+This service continuously monitors Aave positions, identifying accounts that have fallen below the required health factor. When profitable liquidation opportunities are found, it:
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+1. Calculates the optimal liquidation amount
+2. Determines the best DEX route for token swaps
+3. Executes the liquidation using flash loans
+4. Swaps the received collateral for profit
+
+## Features
+
+- **Automated Monitoring**: Periodically checks for liquidatable positions
+- **Multi-RPC Support**: Failover capability with primary and backup RPC nodes
+- **Profit Calculation**: Considers liquidation bonuses, DEX fees, and gas costs
+- **Smart Routing**: Uses IguanaDEX's smart router for optimal token swaps
+- **Concurrent Execution Prevention**: Ensures only one liquidation process runs at a time
+- **Comprehensive Logging**: Detailed logging of all operations and errors
+
+## Prerequisites
+
+- Node.js (v18 or higher)
+- PostgreSQL database
+- Access to Etherlink RPC nodes
+- Wallet with sufficient funds for gas
+- Yarn package manager
 
 ## Installation
 
+1. Clone the repository:
+
 ```bash
-$ yarn install
+git clone <repository-url>
+cd liquidation-bot
 ```
 
-## Running the app
+2. Install dependencies:
 
 ```bash
-# development
-$ yarn run start
+yarn install
+```
 
-# watch mode
-$ yarn run start:dev
+3. Create and configure the environment file:
+
+```bash
+cp .env.sample .env
+```
+
+## Configuration
+
+Edit the `.env` file with your settings:
+
+```env
+# Node URLs
+NODE_URL_PRIMARY=<your-primary-rpc-url>
+NODE_URL_BACKUP=<your-backup-rpc-url>
+
+# Database
+DB_URL=postgresql://<user>:<password>@<host>:<port>/<database>
+
+# Blockchain
+CHAIN_ID=<target-chain-id>
+PRIVATE_KEY=<liquidator-wallet-private-key>
+
+# Scheduling
+LIQUIDATION_CRON_EXPRESSION="*/5 * * * *"  # Runs every 5 minutes
+```
+
+## Database Setup
+
+The service requires a PostgreSQL database with a table for tracking liquidatable positions:
+This table is being setup by the [liquidation-indexer](https://github.com/Superlend/liquidation-bot-indexer)
+
+## Running the Service
+
+```bash
+# development mode
+yarn run start:dev
 
 # production mode
-$ yarn run start:prod
+yarn run build
+yarn run start:prod
+
+# watch mode
+yarn run start
 ```
 
-## Test
+## Architecture
 
-```bash
-# unit tests
-$ yarn run test
+The service consists of several key components:
 
-# e2e tests
-$ yarn run test:e2e
+- **SchedulerService**: Manages the periodic execution of liquidation checks
+- **LiquidationService**: Core logic for processing liquidation opportunities
+- **RpcService**: Handles blockchain interactions and DEX operations
+- **RepoService**: Manages database operations for tracking positions
 
-# test coverage
-$ yarn run test:cov
-```
+## Monitoring
 
-## Support
+The service uses Winston for logging. All operations and errors are logged with appropriate context and stack traces when applicable.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Logs include:
 
-## Stay in touch
+- Liquidation opportunities found
+- Execution attempts and results
+- RPC failovers
+- Database operations
+- Error conditions
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Security Considerations
 
-## License
-
-Nest is [MIT licensed](LICENSE).
+- Secure storage of private keys
+- RPC node reliability and security
+- Database access controls
+- Gas price management

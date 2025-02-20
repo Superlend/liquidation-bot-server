@@ -1,0 +1,43 @@
+# Directories
+node_modules
+dist
+build
+logs
+coverage
+.nyc_output
+.idea
+.vscode/*
+.temp
+.tmp
+
+# Files
+.env*
+*.log
+*.pid
+*.seed
+*.pid.lock
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+.DS_Store
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.cursorrules
+
+# Specific VSCode files to include
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Specific directories
+/env
+/scripts
+
+# Test
+test
+
+Dockerfile
+compose.yml

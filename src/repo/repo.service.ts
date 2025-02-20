@@ -10,15 +10,32 @@ import { ResultWithError } from '../common/interfaces';
 import { Pool } from 'pg';
 import { ConfigService } from '@nestjs/config';
 
+/**
+ * Service responsible for database operations related to liquidation data
+ * Manages PostgreSQL connection pool and provides methods to query liquidatable positions
+ *
+ * Implements:
+ * - OnModuleInit: Initializes database connection pool on service start
+ * - OnModuleDestroy: Cleanly closes database connections on service shutdown
+ */
 @Injectable()
 export class RepoService implements OnModuleInit, OnModuleDestroy {
-  private static pool: Pool; // Shared pool across instances
+  /**
+   * Shared database connection pool
+   * Static to ensure single pool instance across multiple service instances
+   */
+  private static pool: Pool;
 
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
     private configService: ConfigService,
   ) {}
 
+  /**
+   * Initializes the database connection pool when the module starts
+   * Only creates a new pool if one doesn't already exist
+   * Uses database URL from environment configuration
+   */
   async onModuleInit() {
     if (!RepoService.pool) {
       const databaseUrl = this.configService.get<string>('DB_URL');
@@ -28,6 +45,15 @@ export class RepoService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Fetches accounts that are eligible for liquidation
+   * @returns Promise<ResultWithError> containing:
+   * - data: Array of liquidatable accounts with their health factors
+   * - error: Any error that occurred during the query
+   *
+   * Queries are ordered by health factor ascending (worst positions first)
+   * Returns null data and the error object if query fails
+   */
   async getLiquidateableUsers(): Promise<ResultWithError> {
     try {
       this.logger.info('Fetching liquidatable users');
@@ -46,6 +72,10 @@ export class RepoService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Cleanly shuts down the database connection pool when the module is destroyed
+   * Ensures all queries are completed and connections are properly closed
+   */
   async onModuleDestroy() {
     if (RepoService.pool) {
       await RepoService.pool.end();

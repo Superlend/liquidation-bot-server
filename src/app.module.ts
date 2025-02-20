@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { LiquidationModule } from './liquidation/liquidation.module';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
@@ -42,7 +40,7 @@ import { SchedulerModule } from './schedule/schedule.module';
     ScheduleModule.forRoot({}),
     SchedulerModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
