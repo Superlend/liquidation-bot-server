@@ -93,6 +93,7 @@ export class LiquidationService {
     for (const collateral of collateralAssets) {
       if (BigNumber.from(collateral.balance).eq(0)) continue;
       const debt = debtAssets[0];
+      if (!debt) continue;
       if (BigNumber.from(debt.balance).eq(0)) continue;
 
       const maxSeizableCollatInUsd = collateral.balanceUsd;
@@ -107,7 +108,7 @@ export class LiquidationService {
         seizableCollateralUsd = maxSeizableCollatInUsd;
         debtToRepayInUsd = maxDebtCoverableInUsd;
       }
-      const cost = debtToRepayInUsd + gasCost; // TODO: include flash loan premium cost
+      const cost = debtToRepayInUsd + gasCost;
       const profit = seizableCollateralUsd - cost;
 
       const debtAmountInToken = this.parseUnitsWithRetry(
@@ -175,14 +176,18 @@ export class LiquidationService {
         userData.userReservesData,
       );
 
-      if (Number(userData.healthFactor) >= 1) continue;
+      if (
+        Number(userData.healthFactor) >= 1 ||
+        Number(userData.healthFactor) < 0
+      )
+        continue;
 
       const liqOpps = this.calculateLiquidationProfit(
         formattedUserReserveData.collatAssets,
         formattedUserReserveData.debtAssets,
         0, // keeping gas cost as 0 for now
         Number(userData.healthFactor),
-      ); // TODO: add gas cost, slippage and dex fees
+      ); // TODO: add gas cost
       if (!liqOpps[0] || liqOpps[0].profit <= 0) continue;
 
       // calculate the path

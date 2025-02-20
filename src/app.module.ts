@@ -8,6 +8,8 @@ import * as path from 'path';
 import { ConfigModule } from '@nestjs/config';
 import { RepoModule } from './repo/repo.module';
 import { RpcModule } from './rpc/rpc.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { SchedulerModule } from './schedule/schedule.module';
 
 @Module({
   imports: [
@@ -37,6 +39,8 @@ import { RpcModule } from './rpc/rpc.module';
     RepoModule,
     LiquidationModule,
     RpcModule,
+    ScheduleModule.forRoot({}),
+    SchedulerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -314,7 +314,7 @@ export class RpcService {
         this.chainId,
       );
 
-      const receipt = await tx.wait();
+      const receipt = await tx.wait(2);
 
       this.logger.info(
         `Succesfully executed liquidation [params: ${JSON.stringify(liquidationParams)}, txHash: ${receipt.transactionHash}]`,
