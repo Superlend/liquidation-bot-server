@@ -11,7 +11,7 @@ export const LIQUIDATION_HELPER = '0x9af37dBd72adE6c0c9b0D3F3750863C2303d9926';
 
 export const getViemEtherlinkConfig = (nodeUrls: string[]) => {
   return {
-    id: 42_793,
+    id: ChainId.ETHERLINK,
     name: 'Etherlink',
     network: 'etherlink',
     nativeCurrency: {

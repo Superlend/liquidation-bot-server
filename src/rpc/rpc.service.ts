@@ -32,6 +32,7 @@ import {
   abi,
   FlashLiquidations,
 } from '../common/types/contracts/liquidationHelper/flashLiquidation';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class RpcService {
@@ -41,20 +42,24 @@ export class RpcService {
   private iguanaSubgraphClientV3: any;
 
   private liquidatorPvtKey: string;
-
   private chainId: number;
 
-  constructor(@Inject(WINSTON_MODULE_PROVIDER) private logger: Logger) {
+  constructor(
+    @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
+    private configService: ConfigService,
+  ) {
     const nodeUrls = [
-      'https://node.mainnet.etherlink.com',
-      'https://plend-etherlink-mainnet-djs2w.zeeve.net/TuychDxGCScIED1nCk0m/rpc',
+      this.configService.get('NODE_URL_PRIMARY'),
+      this.configService.get('NODE_URL_BACKUP'),
     ];
+
+    this.liquidatorPvtKey = this.configService.get('PRIVATE_KEY');
 
     this.provider = [
       new providers.JsonRpcProvider(nodeUrls[0]),
       new providers.JsonRpcProvider(nodeUrls[1]),
-    ]; // TODO: setup for backup providers
-    this.chainId = 42793;
+    ];
+    this.chainId = this.configService.get('CHAIN_ID');
 
     this.viemClient = createPublicClient({
       chain: getViemEtherlinkConfig(nodeUrls),
@@ -295,7 +300,7 @@ export class RpcService {
           const wallet = new Wallet(this.liquidatorPvtKey, provider);
           return await contract
             .connect(wallet)
-            .estimateGas.executeLiquidation(
+            .executeLiquidation(
               liquidationParams.debtToken,
               liquidationParams.amount,
               liquidationParams.colToken,
@@ -308,9 +313,8 @@ export class RpcService {
         },
         this.chainId,
       );
-      console.log(tx.toString());
-      const receipt = { transactionHash: '-x123' };
-      // await tx.wait();
+
+      const receipt = await tx.wait();
 
       this.logger.info(
         `Succesfully executed liquidation [params: ${JSON.stringify(liquidationParams)}, txHash: ${receipt.transactionHash}]`,

@@ -34,9 +34,6 @@ export class LiquidationService {
 
   async processLiquidations() {
     try {
-      // const unhealthyPositions = [
-      //   { user_address: '0x991d03d62130bf2e0c1cc44ef358dc7a71b04bea' },
-      // ];
       const unhealthyPositions = await Promisify<IndexerDataType[]>(
         this.repoService.getLiquidateableUsers(),
       );
@@ -186,7 +183,7 @@ export class LiquidationService {
         0, // keeping gas cost as 0 for now
         Number(userData.healthFactor),
       ); // TODO: add gas cost, slippage and dex fees
-      if (!liqOpps[0] || liqOpps[0].profit <= 0) return;
+      if (!liqOpps[0] || liqOpps[0].profit <= 0) continue;
 
       // calculate the path
       const liqOpp = liqOpps[0];
@@ -197,10 +194,12 @@ export class LiquidationService {
           liqOpp.collateralToken.amount,
         ),
       );
-      if (tradePath.routes.length === 0)
-        throw new Error(
-          `No dex route exist for ${liqOpp.collateralToken.address} to ${liqOpp.debtToken.address}!`,
+      if (tradePath.routes.length === 0) {
+        this.logger.error(
+          ' `No dex route exist for ${liqOpp.collateralToken.address} to ${liqOpp.debtToken.address}!`',
         );
+        continue;
+      }
 
       const liquidationParams: LiquidationParams = {
         debtToken: liqOpp.debtToken.address,

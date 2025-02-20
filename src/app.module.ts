@@ -5,7 +5,6 @@ import { LiquidationModule } from './liquidation/liquidation.module';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import * as path from 'path';
-import { DBModule } from './db/db.module';
 import { ConfigModule } from '@nestjs/config';
 import { RepoModule } from './repo/repo.module';
 import { RpcModule } from './rpc/rpc.module';
@@ -35,7 +34,6 @@ import { RpcModule } from './rpc/rpc.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    DBModule.forRoot(),
     RepoModule,
     LiquidationModule,
     RpcModule,
