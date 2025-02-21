@@ -8,7 +8,7 @@ import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { LiquidationService } from '../liquidation/liquidation.service';
 import { ConfigService } from '@nestjs/config';
-import { SchedulerRegistry } from '@nestjs/schedule';
+import { CronExpression, SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 
 /**
@@ -64,7 +64,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   private createCronJob() {
     const cronTime = this.configService.get<string>(
       'LIQUIDATION_CRON_EXPRESSION',
-      '*/5 * * * *',
+      CronExpression.EVERY_5_MINUTES,
     );
 
     this.logger.info(`Setting up liquidation cron with schedule: ${cronTime}`);

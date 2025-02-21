@@ -48,6 +48,7 @@ export class RpcService {
 
   private liquidatorPvtKey: string;
   private chainId: number;
+  private liquidationHelper: string;
 
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private logger: Logger,
@@ -59,6 +60,12 @@ export class RpcService {
     ];
 
     this.liquidatorPvtKey = this.configService.get('PRIVATE_KEY');
+    this.liquidationHelper = this.configService.get<string>(
+      'LIQUIDATION_HELPER_ADDRESS',
+    );
+    if (!this.liquidationHelper) {
+      this.liquidationHelper = LIQUIDATION_HELPER;
+    }
 
     this.provider = [
       new providers.JsonRpcProvider(nodeUrls[0]),
