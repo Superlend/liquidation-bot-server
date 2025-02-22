@@ -236,13 +236,18 @@ export class LiquidationService {
 
       // calculate the path
       const liqOpp = liqOpps[0];
-      const tradePath = await Promisify<SmartRouterTrade<TradeType>>(
-        this.rpcService.getTradePath(
-          liqOpp.collateralToken.address.toLowerCase(),
-          liqOpp.debtToken.address.toLowerCase(),
-          liqOpp.collateralToken.amount,
-        ),
+      const tradePathRaw = await this.rpcService.getTradePath(
+        liqOpp.collateralToken.address.toLowerCase(),
+        liqOpp.debtToken.address.toLowerCase(),
+        liqOpp.collateralToken.amount,
       );
+
+      if (tradePathRaw.error) {
+        this.logger.error(`${tradePathRaw.error?.stack}`);
+        continue;
+      }
+      const tradePath: SmartRouterTrade<TradeType> = tradePathRaw.data;
+
       if (tradePath.routes.length === 0) {
         this.logger.error(
           ' `No dex route exist for ${liqOpp.collateralToken.address} to ${liqOpp.debtToken.address}!`',
