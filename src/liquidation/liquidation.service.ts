@@ -6,6 +6,8 @@ import { Promisify } from '../common/promisifier.helper';
 import { RepoService } from '../repo/repo.service';
 import { ReservesDataHumanized } from '@aave/contract-helpers';
 import {
+  hTokenToUnderlyingToken,
+  hTokenToVault,
   POOL_ADDRESSES_PROVIDER,
   UI_POOL_DATA_PROVIDER,
 } from '../common/constants';
@@ -236,10 +238,30 @@ export class LiquidationService {
 
       // calculate the path
       const liqOpp = liqOpps[0];
+
+      // if collat token is a hToken then find trade path between hToken's underlying token and debt token
+      const hUnderlyingToken =
+        hTokenToUnderlyingToken[liqOpp.collateralToken.address];
+      const sourceToken = hUnderlyingToken
+        ? hUnderlyingToken
+        : liqOpp.collateralToken.address;
+      const sourceAmount = hUnderlyingToken
+        ? BigNumber.from(
+            await Promisify<string>(
+              this.rpcService.getLPTokenPrice(
+                hTokenToVault[liqOpp.collateralToken.address],
+              ),
+            ),
+          )
+            .mul(liqOpp.collateralToken.amount)
+            .div(10 ** 8)
+            .toString()
+        : liqOpp.collateralToken.amount;
+
       const tradePathRaw = await this.rpcService.getTradePath(
-        liqOpp.collateralToken.address.toLowerCase(),
+        sourceToken.toLowerCase(),
         liqOpp.debtToken.address.toLowerCase(),
-        liqOpp.collateralToken.amount,
+        sourceAmount,
       );
 
       if (tradePathRaw.error) {
@@ -250,7 +272,7 @@ export class LiquidationService {
 
       if (tradePath.routes.length === 0) {
         this.logger.error(
-          ' `No dex route exist for ${liqOpp.collateralToken.address} to ${liqOpp.debtToken.address}!`',
+          `No dex route exist for ${liqOpp.collateralToken.address} to ${liqOpp.debtToken.address}!`,
         );
         continue;
       }

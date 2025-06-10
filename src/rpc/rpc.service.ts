@@ -32,6 +32,7 @@ import {
   abi,
   FlashLiquidations,
 } from '../common/types/contracts/liquidationHelper/flashLiquidation';
+import { abi as lpManagerAbi } from '../common/types/contracts/LPManager/LPManager';
 import { ConfigService } from '@nestjs/config';
 
 /**
@@ -85,6 +86,25 @@ export class RpcService {
 
     this.iguanaSubgraphClientV3 = new GraphQLClient(IguanaSubgraphV3);
     this.iguanaSubgraphClientV2 = new GraphQLClient(IguanaSubgraphV2);
+  }
+
+  async getLPTokenPrice(vault: string): Promise<ResultWithError> {
+    try {
+      this.logger.info(`Fetching LP token price [vault: ${vault}]`);
+
+      const result = await this.ethCallWithRetry((_provider) => {
+        const contract = new Contract(vault, lpManagerAbi, _provider);
+        return contract.hwmLPPrice();
+      }, this.chainId);
+
+      this.logger.info(`Succesfully fetched LP token price [vault: ${vault}]`);
+      return { data: result?.toString(), error: null };
+    } catch (error) {
+      this.logger.error(
+        `Error in fetching LP token price [vault: ${vault}]: ${error.stack}`,
+      );
+      return { data: null, error };
+    }
   }
 
   /**
