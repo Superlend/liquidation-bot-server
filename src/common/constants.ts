@@ -6,7 +6,7 @@ export const UI_POOL_DATA_PROVIDER =
   '0x9F9384Ef6a1A76AE1a95dF483be4b0214fda0Ef9';
 export const POOL_ADDRESSES_PROVIDER =
   '0x5ccF60c7E10547c5389E9cBFf543E5D0Db9F4feC';
-export const LIQUIDATION_HELPER = '0xaCa090389b8ceE42f8b077Ece9ae85c986A49718';
+export const LIQUIDATION_HELPER = '0x3E6c69d19Bb2ba159dC6ebfb28FD81e697363311';
 
 export const getViemEtherlinkConfig = (nodeUrls: string[]) => {
   return {
