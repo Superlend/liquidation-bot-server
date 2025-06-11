@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN yarn install
+RUN yarn install --force
 
 RUN yarn build
 
@@ -16,7 +16,8 @@ WORKDIR /app
 COPY --from=builder /app/dist /app/dist
 COPY --from=builder /app/package.json /app/package.json
 COPY --from=builder /app/nest-cli.json /app/nest-cli.json
+COPY --from=builder /app/yarn.lock /app/yarn.lock
 
-RUN yarn install --production
+RUN yarn install --force --frozen-lockfile
 
 CMD ["node", "dist/main"]
