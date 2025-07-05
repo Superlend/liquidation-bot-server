@@ -367,7 +367,7 @@ export class RpcService {
         {
           gasPriceWei: () => this.viemClient.getGasPrice(),
           maxHops: 2,
-          maxSplits: 2,
+          maxSplits: 1,
           poolProvider: SmartRouter.createStaticPoolProvider(pools),
           quoteProvider,
           quoterOptimization: true,
