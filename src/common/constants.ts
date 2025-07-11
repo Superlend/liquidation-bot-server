@@ -48,7 +48,7 @@ export const EtherlinkTokens = {
   '0x2c03058c8afc06713be23e58d2febc8337dbfe6a': USDT[ChainId.ETHERLINK],
   '0x796ea11fa2dd751ed01b53c372ffdb4aaa8f00f9': USDC[ChainId.ETHERLINK],
   '0xfc24f770f94edbca6d6f885e12d4317320bcb401': WETH9[ChainId.ETHERLINK],
-  '0xbfc94cd2b1e55999cfc7347a9313e88702b83d0f': WBTC[ChainId.ETHERLINK], // TODO: add mtbill and mbasis
+  '0xbfc94cd2b1e55999cfc7347a9313e88702b83d0f': WBTC[ChainId.ETHERLINK],
   '0x2247b5a46bb79421a314ab0f0b67ffd11dd37ee4': new ERC20Token(
     ChainId.ETHERLINK,
     '0x2247b5a46bb79421a314ab0f0b67ffd11dd37ee4',
@@ -66,6 +66,12 @@ export const EtherlinkTokens = {
     '0xecac9c5f704e954931349da37f60e39f515c11c1',
     8,
     'LBTC',
+  ),
+  '0x01f07f4d78d47a64f4c3b2b65f513f15be6e1854': new ERC20Token(
+    ChainId.ETHERLINK,
+    '0x01f07f4d78d47a64f4c3b2b65f513f15be6e1854',
+    6,
+    'stXTZ',
   ),
 };
 
